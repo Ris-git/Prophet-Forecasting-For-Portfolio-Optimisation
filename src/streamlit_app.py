@@ -188,6 +188,17 @@ def run_dashboard() -> None:
     # Precompute prediction performance dataframe for all tickers
     perf_df = compute_prediction_performance(df.to_json(orient="records", date_format="iso"))
 
+    # Defensive: if the performance dataframe doesn't contain an expected
+    # 'ticker' column (for example, when the Supabase rows are missing that
+    # field or have different column names), avoid crashing and show a helpful
+    # message to the user. This prevents a KeyError later when filtering by
+    # ticker.
+    if not perf_df.empty and "ticker" not in perf_df.columns:
+        st.warning(
+            "Performance data is missing the 'ticker' column. Ensure your Supabase table includes a 'ticker' field (text) for each row."
+        )
+        perf_df = pd.DataFrame()
+
     st.subheader("Portfolio Weights DEMO")
     weight_col, table_col = st.columns([1, 1])
     with weight_col:
@@ -212,7 +223,7 @@ def run_dashboard() -> None:
             hide_index=True,
             use_container_width=True,
             column_config={
-                "Predicted Price": st.column_config.NumberColumn(format="$%.2f"),
+                "Predicted Price": st.column_config.NumberColumn(format="₹%.2f"),
                 "Predicted Return (%)": st.column_config.NumberColumn(format="%.2f%%"),
             },
         )
@@ -226,15 +237,18 @@ def run_dashboard() -> None:
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric(
-            "Latest Actual Price", f"${latest_actual:.2f}" if latest_actual is not None else "—"
+            "Latest Actual Price", f"₹{latest_actual:.2f}" if latest_actual is not None else "—"
         )
     with col2:
-        st.metric("Predicted Price", f"${ticker_row['predicted_price']:.2f}")
+        st.metric("Predicted Price", f"₹{ticker_row['predicted_price']:.2f}")
     with col3:
         st.metric("Predicted Return", f"{ticker_row['predicted_return']*100:.2f}%")
 
     st.subheader(f"Price Trend · {selected_ticker}")
-    ticker_perf_for_trend = perf_df[perf_df["ticker"] == selected_ticker].copy()
+    if "ticker" in perf_df.columns:
+        ticker_perf_for_trend = perf_df[perf_df["ticker"] == selected_ticker].copy()
+    else:
+        ticker_perf_for_trend = pd.DataFrame()
     if ticker_perf_for_trend.empty:
         st.info("No historical prediction data available for this ticker yet.")
     else:
@@ -267,7 +281,7 @@ def run_dashboard() -> None:
             .mark_line(point=True)
             .encode(
                 x=alt.X("evaluation_date:T", title="Evaluation Date"),
-                y=alt.Y("price:Q", title="Price (USD)", scale=alt.Scale(domain=[y_min, y_max])),
+                y=alt.Y("price:Q", title="Price (INR)", scale=alt.Scale(domain=[y_min, y_max])),
                 color=alt.Color(
                     "series:N",
                     title="Series",
@@ -296,7 +310,10 @@ def run_dashboard() -> None:
             "Not enough historical runs to evaluate predictions yet. Check back after multiple runs."
         )
     else:
-        ticker_perf = perf_df[perf_df["ticker"] == selected_ticker].copy()
+        if "ticker" in perf_df.columns:
+            ticker_perf = perf_df[perf_df["ticker"] == selected_ticker].copy()
+        else:
+            ticker_perf = pd.DataFrame()
         if ticker_perf.empty:
             st.info("No historical prediction data for this ticker yet.")
         else:
@@ -327,10 +344,10 @@ def run_dashboard() -> None:
                 hide_index=True,
                 use_container_width=True,
                 column_config={
-                    "Predicted Price": st.column_config.NumberColumn(format="$%.2f"),
-                    "Actual Price": st.column_config.NumberColumn(format="$%.2f"),
-                    "Error": st.column_config.NumberColumn(format="$%.2f"),
-                    "Absolute Error": st.column_config.NumberColumn(format="$%.2f"),
+                    "Predicted Price": st.column_config.NumberColumn(format="₹%.2f"),
+                    "Actual Price": st.column_config.NumberColumn(format="₹%.2f"),
+                    "Error": st.column_config.NumberColumn(format="₹%.2f"),
+                    "Absolute Error": st.column_config.NumberColumn(format="₹%.2f"),
                     "Error (%)": st.column_config.NumberColumn(format="%.2f%%"),
                 },
             )

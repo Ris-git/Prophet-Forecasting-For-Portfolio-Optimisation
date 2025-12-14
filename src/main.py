@@ -80,7 +80,7 @@ def run_optimisation(
 
     logger.info("\nPredicted Prices (Next Day):")
     for ticker, price in predictions.items():
-        logger.info(f"  {ticker}: ${price:.2f}")
+        logger.info(f"  {ticker}: ₹{price:.2f}")
 
     logger.info("\nPredicted Returns:")
     for ticker, ret in predicted_returns.items():

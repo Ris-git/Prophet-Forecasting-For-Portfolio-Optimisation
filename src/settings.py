@@ -2,28 +2,26 @@
 from datetime import datetime
 
 # Risk parameters
-MINIMUM_ALLOCATION = 0.05  # Minimum allocation per asset (5%)
+MINIMUM_ALLOCATION = 0.0  # Minimum allocation per asset (0%)
 MAXIMUM_ALLOCATION = 1
 RISK_AVERSION = 5
 
 # Date defaults
-START_DATE = "2024-01-01"  # Default start date for historical data
+START_DATE = "2020-01-01"  # Extended start date for more ML training data
 END_DATE = datetime.now().strftime("%Y-%m-%d")
 
-# Stock Allocation
+# Stock Allocation - Nifty 50 Constituents (Top weighted & popular)
 PORTFOLIO_TICKERS = [
-    "AMD",
-    "MSFT",
-    "AAPL",
-    "TSLA",
-    "AMZN",
-    "NVDA",
-    "META",
-    "GOOG",
-    "TSM",
-    "JPM",
-    "NFLX",
-    "PLTR",
+    "RELIANCE.NS", "HDFCBANK.NS", "ICICIBANK.NS", "INFY.NS", "ITC.NS",
+    "TCS.NS", "LT.NS", "KOTAKBANK.NS", "AXISBANK.NS", "SBIN.NS",
+    "HINDUNILVR.NS", "BHARTIARTL.NS", "BAJFINANCE.NS", "ASIANPAINT.NS", "MARUTI.NS",
+    "HCLTECH.NS", "SUNPHARMA.NS", "TITAN.NS", "ADANIENT.NS", "TATASTEEL.NS",
+    "NTPC.NS", "POWERGRID.NS", "ULTRACEMCO.NS", "M&M.NS", "TATAMOTORS.NS",
+    "BAJAJFINSV.NS", "ONGC.NS", "NESTLEIND.NS", "WIPRO.NS", "JSWSTEEL.NS",
+    "COALINDIA.NS", "GRASIM.NS", "ADANIPORTS.NS", "TECHM.NS", "HINDALCO.NS",
+    "CIPLA.NS", "SBILIFE.NS", "DRREDDY.NS", "BRITANNIA.NS", "INDUSINDBK.NS",
+    "EICHERMOT.NS", "APOLLOHOSP.NS", "TATACONSUM.NS", "DIVISLAB.NS", "HEROMOTOCO.NS",
+    "BAJAJ-AUTO.NS", "BPCL.NS", "SHRIRAMFIN.NS", "LTIM.NS"
 ]
 
 # Database
