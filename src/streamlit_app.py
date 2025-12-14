@@ -149,6 +149,8 @@ def pie_chart(weights_df: pd.DataFrame):
     chart_df = weights_df[["ticker", "portfolio_weight"]].copy()
     chart_df["portfolio_weight"] = pd.to_numeric(chart_df["portfolio_weight"], errors="coerce")
     chart_df = chart_df.dropna(subset=["portfolio_weight"])
+    # Filter out negligible weights (e.g. < 0.01%) to avoid cluttering the chart
+    chart_df = chart_df[chart_df["portfolio_weight"] > 0.0001]
 
     total_weight = chart_df["portfolio_weight"].sum()
     if total_weight <= 0:
