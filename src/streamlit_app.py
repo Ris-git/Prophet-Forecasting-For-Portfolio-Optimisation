@@ -5,6 +5,11 @@ from __future__ import annotations
 import json
 from datetime import date
 from functools import lru_cache
+import os
+import sys
+
+# Add project root to path so 'src' module can be found
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import altair as alt
 import pandas as pd
