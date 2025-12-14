@@ -5,7 +5,7 @@ An end-to-end machine learning project that forecasts stock and asset prices usi
 
 _(Needless to say it's for illustrative purposes and not financial advice)._
 
-**Live Application**: This project is hosted on a Hostinger VPS, runs every morning at 9am UTC and is accessible at [portfolio-optimisation.com](https://portfolio-optimisation.com)
+**Live Application**: This project is hosted on a Hostinger VPS, runs every morning at 9am UTC and is accessible at [https://prophet-forecasting-for-portfolio-optimisation.streamlit.app/)
 
 **Presentation Slides**: [Here](https://gamma.app/docs/Prophet-Forecasting-for-Portfolio-Optimisation-7qsgynwy1h5x3it) are slides to accompany this project.
 
