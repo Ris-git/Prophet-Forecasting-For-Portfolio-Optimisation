@@ -26,8 +26,28 @@ def get_supabase_client() -> Client | None:
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_KEY")
 
+    # Fallback to Streamlit secrets if not in environment (for Cloud deployment)
     if not url or not key:
-        logger.warning("Supabase credentials not found in environment variables")
+        try:
+            import streamlit as st
+            
+            # Check if secrets are available
+            if hasattr(st, "secrets"):
+                if "SUPABASE_URL" in st.secrets:
+                   url = st.secrets["SUPABASE_URL"]
+                elif "general" in st.secrets and "SUPABASE_URL" in st.secrets["general"]:
+                   url = st.secrets["general"]["SUPABASE_URL"]
+                   
+                if "SUPABASE_KEY" in st.secrets:
+                   key = st.secrets["SUPABASE_KEY"]
+                elif "general" in st.secrets and "SUPABASE_KEY" in st.secrets["general"]:
+                   key = st.secrets["general"]["SUPABASE_KEY"]
+
+        except ImportError:
+            pass  # Not running in Streamlit/Streamlit not installed
+
+    if not url or not key:
+        logger.warning("Supabase credentials not found in environment variables or Streamlit secrets")
         return None
 
     return create_client(url, key)
