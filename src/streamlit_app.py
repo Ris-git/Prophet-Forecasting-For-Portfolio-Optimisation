@@ -92,10 +92,9 @@ def build_price_history(row: pd.Series) -> tuple[pd.DataFrame, pd.DataFrame] | N
     return actual_df, predicted_df
 
 
-@lru_cache(maxsize=1)
-def compute_prediction_performance(data_json: str) -> pd.DataFrame:
+@st.cache_data(ttl=300)
+def compute_prediction_performance(df: pd.DataFrame) -> pd.DataFrame:
     """Compare past predictions against actual outcomes using successive days."""
-    df = pd.read_json(data_json, orient="records", convert_dates=False)
     if df.empty:
         return df
 
@@ -186,7 +185,7 @@ def run_dashboard() -> None:
     date_df = df[df["as_of_date"] == selected_date].copy().sort_values("ticker")
 
     # Precompute prediction performance dataframe for all tickers
-    perf_df = compute_prediction_performance(df.to_json(orient="records", date_format="iso"))
+    perf_df = compute_prediction_performance(df)
 
     # Defensive: if the performance dataframe doesn't contain an expected
     # 'ticker' column (for example, when the Supabase rows are missing that
