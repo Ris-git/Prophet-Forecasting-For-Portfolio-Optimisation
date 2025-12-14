@@ -30,6 +30,7 @@ class TestGetSupabaseClient:
         mock_create_client.assert_called_once_with("https://test.supabase.co", "test-key")
 
     @patch.dict("os.environ", {}, clear=True)
+    @patch.dict("sys.modules", {"streamlit": MagicMock(secrets={})})
     def test_get_supabase_client_without_credentials(self) -> None:
         """Test get_supabase_client returns None when both credentials are missing."""
         result = get_supabase_client()
