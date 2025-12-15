@@ -1,11 +1,11 @@
 # Prophet Forecasting for Portfolio Optimisation
 
 ## Project Overview
-An end-to-end machine learning project that forecasts stock and asset prices using Facebook/Meta Prophet time series forecasting model, then applies Markowitz portfolio optimisation to rebalance portfolios based on these forecasts.
+An end-to-end machine learning project that forecasts stock and asset prices (specifically **Nifty 50** constituents) using Facebook/Meta Prophet time series forecasting model, then applies Markowitz portfolio optimisation to rebalance portfolios based on these forecasts. The project operates with **INR (₹)** as the base currency.
 
 _(Needless to say it's for illustrative purposes and not financial advice)._
 
-**Live Application**: This project is hosted on a Hostinger VPS, runs every morning at 9am UTC and is accessible at [https://prophet-forecasting-for-portfolio-optimisation.streamlit.app/)
+**Live Application**: This project is deployed on Streamlit Community Cloud and is accessible at [https://prophet-portfolio-optimisation.streamlit.app/](https://prophet-portfolio-optimisation.streamlit.app/)
 
 **Presentation Slides**: [Here](https://gamma.app/docs/Prophet-Forecasting-for-Portfolio-Optimisation-7qsgynwy1h5x3it) are slides to accompany this project.
 
@@ -62,6 +62,35 @@ Where:
 4. **Output**: Recommended portfolio allocation (weights for each asset)
 5. **Rebalancing**: Portfolio is rebalanced based on these optimal weights
 
+## Deployment on Streamlit Cloud
+
+To deploy this app on Streamlit Community Cloud:
+
+1.  **Fork this Repository**
+    - Click "Fork" in the top-right corner of this GitHub page.
+
+2.  **Create a Streamlit Cloud Account**
+    - Sign up at [share.streamlit.io](https://share.streamlit.io/).
+
+3.  **Deploy the App**
+    - Click "New app".
+    - Select your forked repository.
+    - Set **Branch** to `main` (or your default branch).
+    - Set **Main file path** to `src/streamlit_app.py`.
+    - Click "Deploy".
+
+4.  **Configure Secrets**
+    - Once deployed (or during deployment), go to the app dashboard "⋮" menu -> **Settings** -> **Secrets**.
+    - Add your Supabase credentials so the app can read the predictions:
+
+    ```toml
+    [general]
+    SUPABASE_URL = "your-supabase-project-url"
+    SUPABASE_KEY = "your-supabase-anon-key"
+    ```
+
+    - Save the secrets. The app should now auto-reload and display data from your Supabase database.
+
 ## Project Workflow
 
 ```
@@ -79,7 +108,7 @@ Optimal Portfolio Weights
     ↓
 Results Saved to Supabase
     ↓
-Streamlit Dashboard Hosted on Hostinger VPS
+Streamlit Dashboard on Streamlit Cloud
 ```
 ## Installation
 
@@ -104,8 +133,8 @@ poetry install
   - [Setup guide](https://circleci.com/blog/setting-up-continuous-integration-with-github/)
 - Supabase account and project
   - [Starting guide](https://supabase.com/docs/guides/getting-started)
-- [Hostinger VPS](https://www.hostinger.com/vps-hosting)
-  - [Guide to deploying a Streamlit App on Hostinger VPS](https://egorhowell.notion.site/Streamlit-Deployment-Guide-on-Hostinger-VPS-2ad2dbb15bea808c9683f6da61e3a4e8?source=copy_link)
+- [Streamlit Community Cloud](https://streamlit.io/cloud) account
+  - Required for deployment
 
 ## Usage
 
@@ -125,7 +154,7 @@ make run
 
 Edit `src/settings.py` to customise:
 
-- **Portfolio Tickers**: Modify `PORTFOLIO_TICKERS` list
+- **Portfolio Tickers**: Modify `PORTFOLIO_TICKERS` list (Default: Nifty 50 constituents)
 - **Risk Aversion**: Adjust `RISK_AVERSION` (higher = more risk averse)
 - **Minimum Allocation**: Change `MINIMUM_ALLOCATION` (minimum weight per asset)
 - **Date Range**: Update `START_DATE` and `END_DATE` for historical data
@@ -134,10 +163,10 @@ Example:
 
 ```python
 # src/settings.py
-PORTFOLIO_TICKERS = ["AAPL", "MSFT", "GOOGL", "TSLA", "AMZN"]
-RISK_AVERSION = 3 
-MINIMUM_ALLOCATION = 0.05 
-START_DATE = "2024-01-01"
+PORTFOLIO_TICKERS = ["RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS"]
+RISK_AVERSION = 5
+MINIMUM_ALLOCATION = 0.0
+START_DATE = "2020-01-01"
 ```
 
 ### Programmatic Usage
@@ -146,9 +175,9 @@ START_DATE = "2024-01-01"
 from src.main import run_optimisation
 
 result = run_optimisation(
-    tickers=["AAPL", "MSFT", "GOOGL"],
-    start_date="2024-01-01",
-    end_date="2024-12-31"
+    tickers=["RELIANCE.NS", "TCS.NS", "INFY.NS"],
+    start_date="2023-01-01",
+    end_date="2023-12-31"
 )
 
 print(f"Optimal Weights: {result['weights']}")
