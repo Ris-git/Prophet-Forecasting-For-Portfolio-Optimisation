@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from src.model import ProphetModel, _get_us_trading_holidays
+from src.model import ProphetModel, _get_indian_trading_holidays
 
 
 class TestProphetModel:
@@ -84,9 +84,9 @@ class TestProphetModel:
         expected_return1 = (predictions["TICKER1"] - current_price1) / current_price1
         assert np.isclose(predicted_returns["TICKER1"], expected_return1, rtol=1e-5)
 
-    def test_get_us_trading_holidays(self) -> None:
-        """Test US trading holidays generation."""
-        holidays = _get_us_trading_holidays(2024, 2024)
+    def test_get_indian_trading_holidays(self) -> None:
+        """Test Indian trading holidays generation."""
+        holidays = _get_indian_trading_holidays(2024, 2024)
 
         assert isinstance(holidays, pd.DataFrame)
         assert len(holidays) > 0
@@ -95,11 +95,10 @@ class TestProphetModel:
         assert "lower_window" in holidays.columns
         assert "upper_window" in holidays.columns
 
-        # Check specific holidays exist
+        # Check standard holiday structure for Indian market
         holiday_names = holidays["holiday"].unique()
-        assert "new_years" in holiday_names
-        assert "christmas" in holiday_names
-        assert "thanksgiving" in holiday_names
+        # XNSE in pandas-market-calendars often stores holidays as adhoc_holidays
+        assert "adhoc_holiday" in holiday_names or any("republic" in name or "independence" in name or "diwali" in name for name in holiday_names)
 
         # Check that all holidays have proper windows
         assert all(holidays["lower_window"] == -1)

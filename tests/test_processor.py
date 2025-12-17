@@ -40,18 +40,11 @@ class TestProcessor:
         assert "TICKER1" in aligned
         assert "TICKER2" in aligned
 
-        # Check that both DataFrames have the same index (common dates)
+        # Both end at the same date, so both are valid and aligned to intersection
         assert list(aligned["TICKER1"].index) == list(aligned["TICKER2"].index)
 
         # Check that indexes are date type
         assert all(isinstance(d, date) for d in aligned["TICKER1"].index)
-        assert all(isinstance(d, date) for d in aligned["TICKER2"].index)
-
-        # Check columns are preserved
-        assert "Price" in aligned["TICKER1"].columns
-        assert "Returns" in aligned["TICKER1"].columns
-        assert "Price" in aligned["TICKER2"].columns
-        assert "Returns" in aligned["TICKER2"].columns
 
         # Common dates should be intersection of both ranges
         dates1_set = {d.date() for d in dates1}

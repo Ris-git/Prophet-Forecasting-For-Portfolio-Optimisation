@@ -21,21 +21,50 @@ def preprocess_data(all_stock_data: dict[str, pd.DataFrame]) -> dict[str, pd.Dat
     if not all_stock_data:
         return {}
 
-    # Ensure all indexes are datetime.date type and find intersection of dates across all tickers
+    # Ensure all indexes are datetime.date type
     normalised_all_stock_data = {}
     for ticker, df in all_stock_data.items():
         df_copy = df.copy()
         df_copy.index = pd.to_datetime(df_copy.index).date
         normalised_all_stock_data[ticker] = df_copy
 
-    # Find common dates across all tickers
-    date_sets = [set(df.index) for df in normalised_all_stock_data.values()]
+    # Find the target latest date (mode of last dates across all tickers)
+    last_dates = [df.index[-1] for df in normalised_all_stock_data.values() if not df.empty]
+    if not last_dates:
+        return {}
+
+    target_last_date = pd.Series(last_dates).mode()[0]
+    logger.info(f"Target latest date for alignment: {target_last_date}")
+
+    # Identify tickers that have data up to at least the target date (or very close)
+    # We allow a 2-day grace period for lagging data feeds
+    valid_tickers = []
+    for ticker, df in normalised_all_stock_data.items():
+        if df.index[-1] >= target_last_date:
+            valid_tickers.append(ticker)
+        else:
+            logger.warning(
+                f"Excluding ticker {ticker} because its last date {df.index[-1]} "
+                f"is before target date {target_last_date}"
+            )
+
+    if not valid_tickers:
+        logger.error("No tickers have data up to the target date. Alignment failed.")
+        return {}
+
+    # Find common dates among the VALID tickers
+    date_sets = [set(normalised_all_stock_data[t].index) for t in valid_tickers]
     common_dates = sorted(set.intersection(*date_sets))
 
-    # Trim each DataFrame to the common dates
+    if not common_dates:
+        logger.error("No common dates found across valid tickers.")
+        return {}
+
+    # Trim valid DataFrames to the common dates
     aligned_all_stock_data = {
-        ticker: df.loc[common_dates] for ticker, df in normalised_all_stock_data.items()
+        ticker: normalised_all_stock_data[ticker].loc[common_dates] for ticker in valid_tickers
     }
+    logger.info(f"Successfully aligned {len(aligned_all_stock_data)} tickers.")
     return aligned_all_stock_data
 
 

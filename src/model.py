@@ -26,9 +26,9 @@ def _normalise_holiday_name(name: str) -> str:
     return cleaned.strip("_")
 
 
-def _get_us_trading_holidays(start_year: int = 2020, end_year: int = 2030) -> pd.DataFrame:
+def _get_indian_trading_holidays(start_year: int = 2020, end_year: int = 2030) -> pd.DataFrame:
     """
-    Fetch US trading holidays using the official exchange calendar.
+    Fetch Indian trading holidays (NSE) using the official exchange calendar.
 
     Args:
         start_year: Start year for holiday list.
@@ -43,7 +43,7 @@ def _get_us_trading_holidays(start_year: int = 2020, end_year: int = 2030) -> pd
     start = pd.Timestamp(date(start_year, 1, 1))
     end = pd.Timestamp(date(end_year, 12, 31))
 
-    calendar = mcal.get_calendar("XNYS")
+    calendar = mcal.get_calendar("XNSE")
     holidays: list[dict[str, pd.Timestamp]] = []
     seen: set[tuple[str, pd.Timestamp]] = set()
 
@@ -120,11 +120,7 @@ class ProphetModel:
             end_year = pd.to_datetime(end_date).year
 
         # Get holidays and filter to relevant date range
-        holidays = _get_us_trading_holidays(start_year - 1, end_year + 1)
-        holidays = holidays[
-            (holidays["ds"] >= pd.to_datetime(start_date))
-            & (holidays["ds"] <= pd.to_datetime(end_date))
-        ]
+        holidays = _get_indian_trading_holidays(start_year - 1, end_year + 1)
 
         # Initialise Prophet with holidays and seasonality
         prophet_params = PROPHET_PARAMS.copy()
