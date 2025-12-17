@@ -10,6 +10,16 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+import sys
+import os
+from pathlib import Path
+
+# Add project root to sys.path
+file_path = Path(__file__).resolve()
+root_path = file_path.parent.parent
+if str(root_path) not in sys.path:
+    sys.path.append(str(root_path))
+
 from src.database import get_supabase_client
 from src.settings import SUPABASE_TABLE_NAME
 
