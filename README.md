@@ -5,7 +5,7 @@ An end-to-end machine learning project that forecasts stock and asset prices (sp
 
 _(Needless to say it's for illustrative purposes and not financial advice)._
 
-**Live Application**: This project is deployed on Streamlit Community Cloud and is accessible at [https://prophet-portfolio-optimisation.streamlit.app/](https://prophet-portfolio-optimisation.streamlit.app/)
+**Live Application**: This project is deployed on Streamlit Community Cloud and is accessible at [https://prophet-portfolio-optimisation.streamlit.app/](https://prophet-forecasting-for-portfolio-optimisation.streamlit.app/)
 
 **Presentation Slides**: [Here](https://gamma.app/docs/Prophet-Forecasting-for-Portfolio-Optimisation-7qsgynwy1h5x3it) are slides to accompany this project.
 
