@@ -98,7 +98,10 @@ class TestProphetModel:
         # Check standard holiday structure for Indian market
         holiday_names = holidays["holiday"].unique()
         # XNSE in pandas-market-calendars often stores holidays as adhoc_holidays
-        assert "adhoc_holiday" in holiday_names or any("republic" in name or "independence" in name or "diwali" in name for name in holiday_names)
+        assert "adhoc_holiday" in holiday_names or any(
+            "republic" in name or "independence" in name or "diwali" in name
+            for name in holiday_names
+        )
 
         # Check that all holidays have proper windows
         assert all(holidays["lower_window"] == -1)
