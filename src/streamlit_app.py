@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import uuid
 from datetime import date
 from pathlib import Path
 
@@ -18,7 +19,12 @@ root_path = file_path.parent.parent
 if str(root_path) not in sys.path:
     sys.path.append(str(root_path))
 
-from src.database import get_supabase_client  # noqa: E402
+from src.database import get_supabase_client, log_visitor  # noqa: E402
+from src.llm_assistant import (  # noqa: E402
+    SUGGESTED_QUESTIONS,
+    build_portfolio_context,
+    chat_with_assistant,
+)
 from src.settings import SUPABASE_TABLE_NAME  # noqa: E402
 
 st.set_page_config(page_title="Portfolio Forecast Dashboard", layout="wide")
@@ -180,6 +186,18 @@ def run_dashboard() -> None:
     st.caption(
         "Latest Prophet predictions, portfolio weights, and performance analysis sourced from Supabase."
     )
+
+    # Track visitor
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())
+
+    if "visit_logged" not in st.session_state:
+        # Try to capture query params as a proxy for referrer/source
+        query_params = st.query_params
+        referrer = str(query_params) if query_params else None
+
+        log_visitor(session_id=st.session_state.session_id, referrer=referrer)
+        st.session_state.visit_logged = True
 
     df = load_supabase_predictions()
     if df.empty:
@@ -359,6 +377,89 @@ def run_dashboard() -> None:
                     "Error (%)": st.column_config.NumberColumn(format="%.2f%%"),
                 },
             )
+
+    # AI Assistant Chat Section
+    st.divider()
+    st.subheader("🤖 Ask AI Assistant")
+    st.caption(
+        "Ask questions about the portfolio allocation, predictions, or optimization. "
+        "The assistant explains model outputs but does not provide investment advice."
+    )
+
+    # Initialize chat history in session state
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+
+    # Build context from current portfolio data
+    portfolio_context = build_portfolio_context(
+        date_df=date_df,
+        selected_date=selected_date,
+        selected_ticker=selected_ticker,
+    )
+
+    # Suggested questions as buttons
+    st.markdown("**Suggested questions:**")
+    cols = st.columns(3)
+    for idx, question in enumerate(SUGGESTED_QUESTIONS[:3]):
+        with cols[idx]:
+            if st.button(question, key=f"suggested_{idx}", use_container_width=True):
+                st.session_state.pending_question = question
+
+    # Display chat history
+    for message in st.session_state.chat_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # Handle pending question from button click
+    if "pending_question" in st.session_state:
+        user_input = st.session_state.pending_question
+        del st.session_state.pending_question
+
+        # Add user message to history
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+
+        # Get assistant response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                response = chat_with_assistant(
+                    user_message=user_input,
+                    portfolio_context=portfolio_context,
+                    chat_history=st.session_state.chat_history,
+                )
+            st.markdown(response)
+
+        # Add assistant response to history
+        st.session_state.chat_history.append({"role": "assistant", "content": response})
+        st.rerun()
+
+    # Chat input
+    if user_input := st.chat_input("Ask about the portfolio..."):
+        # Add user message to history
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+
+        # Get assistant response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                response = chat_with_assistant(
+                    user_message=user_input,
+                    portfolio_context=portfolio_context,
+                    chat_history=st.session_state.chat_history,
+                )
+            st.markdown(response)
+
+        # Add assistant response to history
+        st.session_state.chat_history.append({"role": "assistant", "content": response})
+        st.rerun()
+
+    # Clear chat button
+    if st.session_state.chat_history:
+        if st.button("Clear chat history", type="secondary"):
+            st.session_state.chat_history = []
+            st.rerun()
 
 
 def main() -> None:

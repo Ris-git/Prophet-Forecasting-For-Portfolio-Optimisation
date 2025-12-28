@@ -65,6 +65,7 @@ PORTFOLIO_TICKERS = [
 
 # Database
 SUPABASE_TABLE_NAME = "stock_optimisation_store"
+ANALYTICS_TABLE_NAME = "visitor_analytics"
 
 # Holiday name mapping for Prophet model
 HOLIDAY_NAME_MAP = {
@@ -88,3 +89,8 @@ PROPHET_PARAMS = {
     "weekly_seasonality": True,
     "daily_seasonality": False,
 }
+
+# LLM Assistant Configuration
+LLM_MODEL = "gemini-2.0-flash"  # Free tier model with system instruction support
+LLM_MAX_TOKENS = 1024
+LLM_TEMPERATURE = 0.3  # Lower for more factual responses

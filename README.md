@@ -62,6 +62,32 @@ Where:
 4. **Output**: Recommended portfolio allocation (weights for each asset)
 5. **Rebalancing**: Portfolio is rebalanced based on these optimal weights
 
+### 3. LLM-Powered Financial Analytics Assistant
+
+**What is the AI Assistant?**
+
+An integrated explainability layer powered by Google's Gemini API that translates complex quantitative outputs into clear, understandable insights. The assistant acts as an educational interface to help users understand portfolio allocations and model outputs.
+
+**Key Features:**
+
+- **Portfolio Explainability**: Explains why certain assets have higher/lower weights based on expected returns, covariance, and risk-adjusted contributions
+- **Educational Insights**: Provides step-by-step explanations of optimization mechanics and risk-return trade-offs
+- **Comparative Analysis**: Compares assets and explains their contributions to the overall portfolio
+- **Safe Guardrails**: Strictly refuses to provide investment advice or make predictions
+
+**Important Constraints:**
+
+- ⚠️ **Not a Financial Advisor**: The assistant explains model outputs but does NOT provide investment recommendations
+- 📊 **Data-Grounded**: All responses are based on the actual portfolio data provided, never hallucinated
+- 🎓 **Educational Only**: For learning and understanding purposes, not trading decisions
+
+**How It Works:**
+
+1. **Context Building**: Portfolio data (weights, returns, prices) is formatted and passed to the LLM
+2. **System Prompt**: A carefully crafted prompt defines the assistant's role and constraints
+3. **User Query**: Users ask questions about the portfolio in natural language
+4. **Grounded Response**: The assistant provides explanations based solely on the provided data
+
 ## Deployment on Streamlit Cloud
 
 To deploy this app on Streamlit Community Cloud:
@@ -87,9 +113,11 @@ To deploy this app on Streamlit Community Cloud:
     [general]
     SUPABASE_URL = "your-supabase-project-url"
     SUPABASE_KEY = "your-supabase-anon-key"
+    GEMINI_API_KEY = "your-gemini-api-key"  # For AI Assistant feature
     ```
 
     - Save the secrets. The app should now auto-reload and display data from your Supabase database.
+    - **Note**: The `GEMINI_API_KEY` enables the AI Financial Analytics Assistant. Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 
 ## Project Workflow
 
@@ -109,6 +137,8 @@ Optimal Portfolio Weights
 Results Saved to Supabase
     ↓
 Streamlit Dashboard on Streamlit Cloud
+    ↓
+LLM-Powered Explainability (Gemini AI)
 ```
 ## Installation
 
@@ -202,9 +232,10 @@ make dashboard
 
 The dashboard allows you to:
 - View portfolio weights and predictions for any date
-- Analywe individual stock performance over time
+- Analyze individual stock performance over time
 - Compare predicted vs actual prices
 - Track prediction accuracy metrics
+- **Ask AI Assistant** questions about portfolio allocations and model mechanics
 
-**Note:** The dashboard requires Supabase to be configured and populated with data from previous optimization runs.
+**Note:** The dashboard requires Supabase to be configured and populated with data from previous optimization runs. The AI Assistant requires a Gemini API key.
 

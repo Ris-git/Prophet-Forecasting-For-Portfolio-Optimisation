@@ -11,7 +11,7 @@ from typing import Any
 
 from supabase import Client, create_client
 
-from src.settings import SUPABASE_TABLE_NAME
+from src.settings import ANALYTICS_TABLE_NAME, SUPABASE_TABLE_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -101,3 +101,42 @@ def save_results_to_supabase(result: dict[str, Any]) -> None:
     (supabase.table(SUPABASE_TABLE_NAME).insert(rows).execute())
 
     logger.info(f"Successfully saved {len(rows)} predictions to Supabase")
+
+
+def log_visitor(
+    session_id: str,
+    page_name: str = "dashboard",
+    user_agent: str | None = None,
+    referrer: str | None = None,
+) -> None:
+    """
+    Log a visitor to the analytics table.
+
+    Args:
+        session_id: Unique session identifier
+        page_name: Name of the page visited
+        user_agent: User agent string (optional)
+        referrer: Referrer URL (optional)
+    """
+    supabase = get_supabase_client()
+    if supabase is None:
+        logger.warning("Supabase client not available. Skipping visitor logging.")
+        return
+
+    try:
+        data = {
+            "session_id": session_id,
+            "page_name": page_name,
+            "visited_at": datetime.now().isoformat(),
+        }
+        if user_agent:
+            data["user_agent"] = user_agent
+        if referrer:
+            data["referrer"] = referrer
+
+        supabase.table(ANALYTICS_TABLE_NAME).insert(data).execute()
+        logger.info(f"Logged visitor session: {session_id}")
+
+    except Exception as e:
+        logger.error(f"Failed to log visitor: {e}")
+
