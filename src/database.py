@@ -52,6 +52,13 @@ def get_supabase_client() -> Client | None:
         )
         return None
 
+    # Clean up potentially malformed secrets from Streamlit Cloud
+    url = str(url).strip().strip("'").strip('"').rstrip('/')
+    if not url.startswith("http"):
+        url = f"https://{url}"
+    
+    key = str(key).strip().strip("'").strip('"')
+
     return create_client(url, key)
 
 

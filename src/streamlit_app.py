@@ -37,13 +37,18 @@ def load_supabase_predictions() -> pd.DataFrame:
     if client is None:
         return pd.DataFrame()
 
-    response = (
-        client.table(SUPABASE_TABLE_NAME)
-        .select("*")
-        .order("as_of_date", desc=True)
-        .order("created_at", desc=True)
-        .execute()
-    )
+    try:
+        response = (
+            client.table(SUPABASE_TABLE_NAME)
+            .select("*")
+            .order("as_of_date", desc=True)
+            .order("created_at", desc=True)
+            .execute()
+        )
+    except Exception as e:
+        print(f"Error connecting to Supabase: {e}")
+        # Could use st.warning here, but returning empty DataFrame is handled gracefully by the UI later
+        return pd.DataFrame()
     data = getattr(response, "data", None)
     if not data:
         return pd.DataFrame()
