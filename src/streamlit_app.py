@@ -46,8 +46,7 @@ def load_supabase_predictions() -> pd.DataFrame:
             .execute()
         )
     except Exception as e:
-        print(f"Error connecting to Supabase: {e}")
-        # Could use st.warning here, but returning empty DataFrame is handled gracefully by the UI later
+        st.error(f"Error connecting to Supabase: {e}")
         return pd.DataFrame()
     data = getattr(response, "data", None)
     if not data:
