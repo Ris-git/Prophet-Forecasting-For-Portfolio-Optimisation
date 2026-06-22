@@ -91,6 +91,6 @@ PROPHET_PARAMS = {
 }
 
 # LLM Assistant Configuration
-LLM_MODEL = "gemini-2.0-flash"  # Free tier model with system instruction support
+LLM_MODEL = "gemini-3.5-flash"  # Free tier model with system instruction support
 LLM_MAX_TOKENS = 1024
 LLM_TEMPERATURE = 0.3  # Lower for more factual responses
