@@ -407,57 +407,38 @@ def run_dashboard() -> None:
     for idx, question in enumerate(SUGGESTED_QUESTIONS[:3]):
         with cols[idx]:
             if st.button(question, key=f"suggested_{idx}", use_container_width=True):
-                st.session_state.pending_question = question
+                st.session_state.chat_history.append({"role": "user", "content": question})
+                st.session_state.generate_response = True
+                st.rerun()
 
     # Display chat history
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Handle pending question from button click
-    if "pending_question" in st.session_state:
-        user_input = st.session_state.pending_question
-        del st.session_state.pending_question
-
-        # Add user message to history
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
-
-        # Get assistant response
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = chat_with_assistant(
-                    user_message=user_input,
-                    portfolio_context=portfolio_context,
-                    chat_history=st.session_state.chat_history,
-                )
-            st.markdown(response)
-
-        # Add assistant response to history
-        st.session_state.chat_history.append({"role": "assistant", "content": response})
-        st.rerun()
-
     # Chat input
     if user_input := st.chat_input("Ask about the portfolio..."):
-        # Add user message to history
         st.session_state.chat_history.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
-
-        # Get assistant response
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = chat_with_assistant(
-                    user_message=user_input,
-                    portfolio_context=portfolio_context,
-                    chat_history=st.session_state.chat_history,
-                )
-            st.markdown(response)
-
-        # Add assistant response to history
-        st.session_state.chat_history.append({"role": "assistant", "content": response})
+        st.session_state.generate_response = True
         st.rerun()
+
+    # Generate response if requested
+    if st.session_state.get("generate_response", False):
+        st.session_state.generate_response = False  # Reset flag
+        if st.session_state.chat_history:
+            last_message = st.session_state.chat_history[-1]
+            if last_message["role"] == "user":
+                user_message = last_message["content"]
+                with st.chat_message("assistant"):
+                    with st.spinner("Thinking..."):
+                        response = chat_with_assistant(
+                            user_message=user_message,
+                            portfolio_context=portfolio_context,
+                            chat_history=st.session_state.chat_history,
+                        )
+                    st.markdown(response)
+                st.session_state.chat_history.append({"role": "assistant", "content": response})
+                st.rerun()
 
     # Clear chat button
     if st.session_state.chat_history:

@@ -238,7 +238,12 @@ Now answer the following question based on this data:
 
     # Include chat history if available
     if chat_history:
-        for msg in chat_history[-6:]:  # Keep last 6 messages for context
+        # Check if the last message in history is the current user message to avoid duplication
+        history_to_use = chat_history
+        if chat_history[-1]["content"] == user_message and chat_history[-1]["role"] == "user":
+            history_to_use = chat_history[:-1]
+
+        for msg in history_to_use[-6:]:  # Keep last 6 messages for context
             role = "user" if msg["role"] == "user" else "model"
             messages.append({"role": role, "parts": [msg["content"]]})
 
