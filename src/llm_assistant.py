@@ -6,7 +6,8 @@ import logging
 import os
 from typing import Any
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import pandas as pd
 
 from src.settings import LLM_MAX_TOKENS, LLM_MODEL, LLM_TEMPERATURE
@@ -103,28 +104,19 @@ def get_gemini_api_key() -> str | None:
     return api_key
 
 
-def get_llm_client() -> genai.GenerativeModel | None:
+def get_llm_client() -> genai.Client | None:
     """
-    Initialize and return Gemini client.
+    Initialize and return Gemini client (new google-genai SDK).
 
     Returns:
-        Configured GenerativeModel if API key available, None otherwise
+        Configured Client if API key available, None otherwise
     """
     api_key = get_gemini_api_key()
     if not api_key:
         logger.warning("Gemini API key not found in environment or Streamlit secrets")
         return None
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        model_name=LLM_MODEL,
-        generation_config={
-            "temperature": LLM_TEMPERATURE,
-            "max_output_tokens": LLM_MAX_TOKENS,
-        },
-        system_instruction=SYSTEM_PROMPT,
-    )
-    return model
+    return genai.Client(api_key=api_key)
 
 
 def build_portfolio_context(
@@ -216,17 +208,14 @@ def chat_with_assistant(
     Returns:
         Assistant's response string
     """
-    model = get_llm_client()
-    if model is None:
+    client = get_llm_client()
+    if client is None:
         return (
             "⚠️ **LLM not available**: Gemini API key not configured. "
             "Please add GEMINI_API_KEY to your Streamlit secrets."
         )
 
-    # Build the conversation
-    messages = []
-
-    # Add context as first user message
+    # Build the full message with portfolio context injected
     context_message = f"""Here is the current portfolio data you should use to answer questions:
 
 {portfolio_context}
@@ -236,23 +225,32 @@ def chat_with_assistant(
 Now answer the following question based on this data:
 {user_message}"""
 
-    # Include chat history if available
+    # Build conversation history in the new SDK format
+    contents: list[types.Content] = []
+
     if chat_history:
-        # Check if the last message in history is the current user message to avoid duplication
         history_to_use = chat_history
+        # Avoid duplicating the current user message if it's already in history
         if chat_history[-1]["content"] == user_message and chat_history[-1]["role"] == "user":
             history_to_use = chat_history[:-1]
 
         for msg in history_to_use[-6:]:  # Keep last 6 messages for context
             role = "user" if msg["role"] == "user" else "model"
-            messages.append({"role": role, "parts": [msg["content"]]})
+            contents.append(types.Content(role=role, parts=[types.Part(text=msg["content"])]))
 
-    # Add current message
-    messages.append({"role": "user", "parts": [context_message]})
+    # Append the current user message
+    contents.append(types.Content(role="user", parts=[types.Part(text=context_message)]))
 
     try:
-        chat = model.start_chat(history=messages[:-1] if len(messages) > 1 else [])
-        response = chat.send_message(messages[-1]["parts"][0])
+        response = client.models.generate_content(
+            model=LLM_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                temperature=LLM_TEMPERATURE,
+                max_output_tokens=LLM_MAX_TOKENS,
+            ),
+        )
         text = response.text
 
         # Guard: detect mid-markdown truncation (odd number of ** markers → unclosed bold)
@@ -268,7 +266,7 @@ Now answer the following question based on this data:
 
 # Suggested questions for users
 SUGGESTED_QUESTIONS = [
-    "Why does the top asset have the highest portfolio weight?",
+    "Give me a walkthrough of this dashboard and what it shows.",
     "Explain the risk-return trade-off in this portfolio.",
     "What factors influence the portfolio weights?",
     "How does the Markowitz optimization work?",

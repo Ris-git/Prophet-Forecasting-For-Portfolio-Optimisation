@@ -91,6 +91,6 @@ PROPHET_PARAMS = {
 }
 
 # LLM Assistant Configuration
-LLM_MODEL = "gemini-1.5-flash"  # Stable, currently available free-tier model
+LLM_MODEL = "gemini-2.5-flash"  # Latest stable model (new google-genai SDK)
 LLM_MAX_TOKENS = 2048  # Increased to prevent mid-markdown truncation with large portfolios
 LLM_TEMPERATURE = 0.3  # Lower for more factual responses
