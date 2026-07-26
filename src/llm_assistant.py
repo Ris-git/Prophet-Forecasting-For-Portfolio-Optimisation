@@ -253,7 +253,14 @@ Now answer the following question based on this data:
     try:
         chat = model.start_chat(history=messages[:-1] if len(messages) > 1 else [])
         response = chat.send_message(messages[-1]["parts"][0])
-        return response.text
+        text = response.text
+
+        # Guard: detect mid-markdown truncation (odd number of ** markers → unclosed bold)
+        if text.count("**") % 2 != 0:
+            logger.warning("LLM response appears truncated (unclosed markdown bold markers).")
+            text += "\n\n> ⚠️ *Response was truncated. Try asking a more specific question.*"
+
+        return text
     except Exception as e:
         logger.error(f"Error calling Gemini API: {e}")
         return f"⚠️ **Error**: Unable to get response from AI assistant. {e!s}"
