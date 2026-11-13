@@ -14,6 +14,7 @@ from src.llm_assistant import (
     get_assistant_error_message,
     get_gemini_api_key,
     get_llm_client,
+    offline_portfolio_explainer,
 )
 
 
@@ -151,15 +152,18 @@ class TestChatWithAssistant:
     """Test chat functionality."""
 
     def test_chat_without_api_key(self) -> None:
-        """Test that chat returns error message when API key is missing."""
+        """Test that chat remains useful when an API key is missing."""
         with patch("src.llm_assistant.get_llm_client", return_value=None):
             response = chat_with_assistant(
-                user_message="Why is RELIANCE weighted highest?",
-                portfolio_context="Test context",
+                user_message="Explain the risk-return trade-off",
+                portfolio_context=(
+                    "| RELIANCE.NS | 2500.00 | 2.50% | 40.00% |\n"
+                    "| INFY.NS | 1800.50 | 1.50% | 35.00% |"
+                ),
             )
 
-            assert "LLM not available" in response
-            assert "GEMINI_API_KEY" in response
+            assert "offline explanation" in response
+            assert "RELIANCE.NS" in response
 
     @patch("src.llm_assistant.get_llm_client")
     def test_chat_returns_response(self, mock_get_client: MagicMock) -> None:
@@ -192,7 +196,7 @@ class TestChatWithAssistant:
             portfolio_context="Test context",
         )
 
-        assert "temporarily busy" in response
+        assert "offline explanation" in response
         assert "RESOURCE_EXHAUSTED" not in response
 
     def test_quota_error_message_does_not_expose_provider_details(self) -> None:
@@ -204,6 +208,17 @@ class TestChatWithAssistant:
         assert "temporarily busy" in response
         assert "wait a minute" in response
         assert "123456" not in response
+
+    def test_offline_explainer_handles_questions_outside_supported_topics(self) -> None:
+        """Fallback should be conversational while staying within available data."""
+        response = offline_portfolio_explainer(
+            "Will markets rise next month?",
+            "| RELIANCE.NS | 2500.00 | 2.50% | 40.00% |",
+        )
+
+        assert "thoughtful question" in response
+        assert "RELIANCE.NS" in response
+        assert "can’t verify claims" in response
 
     @patch("src.llm_assistant.get_llm_client")
     def test_chat_with_history(self, mock_get_client: MagicMock) -> None:

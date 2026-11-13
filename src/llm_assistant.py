@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Any
 
 from google import genai
@@ -45,6 +46,133 @@ def get_assistant_error_message(error: Exception) -> str:
     return (
         "⚠️ **The AI assistant is unavailable right now.** Please try again in a "
         "moment. If the problem continues, ask the app owner to check the service logs."
+    )
+
+
+def _portfolio_rows_from_context(portfolio_context: str) -> list[dict[str, float | str]]:
+    """Extract the compact asset table created by ``build_portfolio_context``."""
+    rows: list[dict[str, float | str]] = []
+    pattern = re.compile(
+        r"^\|\s*([^|]+?)\s*\|\s*([\d.]+)\s*\|\s*([+-]?[\d.]+)%\s*\|\s*([+-]?[\d.]+)%\s*\|$"
+    )
+    for line in portfolio_context.splitlines():
+        match = pattern.match(line.strip())
+        if not match:
+            continue
+        ticker, price, predicted_return, weight = match.groups()
+        rows.append(
+            {
+                "ticker": ticker.strip(),
+                "price": float(price),
+                "return": float(predicted_return),
+                "weight": float(weight),
+            }
+        )
+    return rows
+
+
+def offline_portfolio_explainer(user_message: str, portfolio_context: str) -> str:
+    """Give a useful, data-grounded reply when the live language service is down.
+
+    This deliberately covers common dashboard questions without claiming to be a
+    substitute for the live assistant.  It only uses values supplied in the current
+    portfolio context.
+    """
+    rows = _portfolio_rows_from_context(portfolio_context)
+    question = user_message.lower()
+    mode_notice = (
+        "*Live AI is temporarily unavailable, so this is an offline explanation "
+        "based only on the portfolio currently shown on the dashboard.*\n\n"
+    )
+
+    if not rows:
+        return (
+            mode_notice
+            +
+            "I don’t have enough current portfolio data to analyse that yet. Once the "
+            "dashboard has loaded allocations and forecasts, I can explain their risk, "
+            "weights, and model assumptions."
+        )
+
+    top = rows[0]
+    highest_return = max(rows, key=lambda row: float(row["return"]))
+    lowest_return = min(rows, key=lambda row: float(row["return"]))
+    top_three = rows[:3]
+    top_three_text = ", ".join(
+        f"{row['ticker']} ({float(row['weight']):.2f}%)" for row in top_three
+    )
+
+    if any(term in question for term in ("risk", "trade-off", "return")):
+        return (
+            mode_notice
+            +
+            f"**Risk–return view:** the portfolio places its largest allocation in "
+            f"**{top['ticker']} ({float(top['weight']):.2f}%)**. The strongest model "
+            f"forecast in this snapshot is **{highest_return['ticker']} "
+            f"({float(highest_return['return']):.2f}% expected return)**.\n\n"
+            "The optimiser does not simply put all capital into the highest-return "
+            "asset: it balances expected return against volatility and how assets move "
+            "together. A larger weight therefore signals a better risk-adjusted fit in "
+            "this model, not a guarantee of performance."
+        )
+
+    if any(term in question for term in ("weight", "allocation", "why is", "why are")):
+        return (
+            mode_notice
+            +
+            f"**Allocation view:** the three largest positions are {top_three_text}.\n\n"
+            "Portfolio weights are driven by the Prophet-based expected returns, each "
+            "asset’s historical volatility, and the covariance between assets. An asset "
+            "can receive a lower weight even with a strong forecast if it adds too much "
+            "overlapping risk; conversely, a moderate-return asset can help diversify the "
+            "whole portfolio."
+        )
+
+    if any(term in question for term in ("walkthrough", "dashboard", "what it shows")):
+        return (
+            mode_notice
+            +
+            f"This dashboard currently covers **{len(rows)} assets**. It shows each "
+            "asset’s Prophet forecast, predicted return, and Markowitz portfolio weight. "
+            f"The largest allocation is {top['ticker']} at {float(top['weight']):.2f}%, "
+            f"while {highest_return['ticker']} has the highest displayed expected return "
+            f"at {float(highest_return['return']):.2f}%.\n\n"
+            "Read the forecasts as model estimates, then use the weights to see how the "
+            "optimiser balances those estimates against portfolio risk."
+        )
+
+    if any(term in question for term in ("markowitz", "optimis", "optimiz")):
+        return (
+            mode_notice
+            +
+            "**How the optimisation works:** it begins with the forecast-derived expected "
+            "returns, estimates risk from historical return covariance, and selects weights "
+            "that balance return and risk under the dashboard’s constraints.\n\n"
+            f"In this snapshot, {top['ticker']} is the largest selected position "
+            f"({float(top['weight']):.2f}%). That outcome reflects the full portfolio "
+            "combination—not a standalone prediction that this asset will outperform."
+        )
+
+    if any(term in question for term in ("top", "compare", "contribution")):
+        return (
+            mode_notice
+            +
+            f"**Largest current allocations:** {top_three_text}. The highest displayed "
+            f"expected return is {highest_return['ticker']} ({float(highest_return['return']):.2f}%), "
+            f"and the lowest is {lowest_return['ticker']} ({float(lowest_return['return']):.2f}%).\n\n"
+            "A direct contribution comparison needs each asset’s weight, return estimate, "
+            "and covariance with the rest of the portfolio; the optimiser uses all three."
+        )
+
+    return (
+        mode_notice
+        +
+        f"That’s a thoughtful question. The current snapshot shows {len(rows)} assets, "
+        f"led by {top['ticker']} at {float(top['weight']):.2f}% allocation. I can’t "
+        "verify claims beyond these forecasts and allocations without the live assistant, "
+        "but I can still help you explore the model’s evidence.\n\n"
+        "Try asking how the portfolio weights are determined, what the risk–return trade-off "
+        "means, how Markowitz optimisation works, or how the largest allocations compare."
     )
 
 # System prompt defining the AI assistant's persona and constraints
@@ -243,10 +371,8 @@ def chat_with_assistant(
     """
     client = get_llm_client()
     if client is None:
-        return (
-            "⚠️ **LLM not available**: Gemini API key not configured. "
-            "Please add GEMINI_API_KEY to your Streamlit secrets."
-        )
+        logger.warning("Gemini client unavailable; using offline portfolio explainer.")
+        return offline_portfolio_explainer(user_message, portfolio_context)
 
     # Build the full message with portfolio context injected
     context_message = f"""Here is the current portfolio data you should use to answer questions:
@@ -287,10 +413,7 @@ Now answer the following question based on this data:
         text = response.text
         if not text or not text.strip():
             logger.warning("Gemini returned an empty response.")
-            return (
-                "⚠️ **The AI assistant did not return an answer.** Please try asking "
-                "again or rephrase your question."
-            )
+            return offline_portfolio_explainer(user_message, portfolio_context)
 
         # Guard: detect mid-markdown truncation (odd number of ** markers → unclosed bold)
         if text.count("**") % 2 != 0:
@@ -302,7 +425,8 @@ Now answer the following question based on this data:
         # Keep the detailed exception in server logs for diagnosis, but do not leak
         # provider/project details into the customer-facing chat.
         logger.exception("Error calling Gemini API")
-        return get_assistant_error_message(error)
+        logger.warning(get_assistant_error_message(error))
+        return offline_portfolio_explainer(user_message, portfolio_context)
 
 
 # Suggested questions for users
