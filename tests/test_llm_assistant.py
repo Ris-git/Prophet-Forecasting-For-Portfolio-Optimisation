@@ -11,6 +11,7 @@ from src.llm_assistant import (
     SYSTEM_PROMPT,
     build_portfolio_context,
     chat_with_assistant,
+    get_assistant_error_message,
     get_gemini_api_key,
     get_llm_client,
 )
@@ -81,13 +82,13 @@ class TestGetLlmClient:
     @patch.dict("os.environ", {"GEMINI_API_KEY": "test-api-key"})
     def test_get_llm_client_with_api_key(self, mock_genai: MagicMock) -> None:
         """Test that client is created when API key is available."""
-        mock_model = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
 
         client = get_llm_client()
 
-        mock_genai.configure.assert_called_once_with(api_key="test-api-key")
-        assert client is not None
+        mock_genai.Client.assert_called_once_with(api_key="test-api-key")
+        assert client is mock_client
 
 
 class TestBuildPortfolioContext:
@@ -165,12 +166,10 @@ class TestChatWithAssistant:
         """Test that chat returns LLM response."""
         # Setup mock
         mock_model = MagicMock()
-        mock_chat = MagicMock()
         mock_response = MagicMock()
         mock_response.text = "RELIANCE has the highest weight due to its high expected return."
 
-        mock_model.start_chat.return_value = mock_chat
-        mock_chat.send_message.return_value = mock_response
+        mock_model.models.generate_content.return_value = mock_response
         mock_get_client.return_value = mock_model
 
         response = chat_with_assistant(
@@ -185,7 +184,7 @@ class TestChatWithAssistant:
     def test_chat_handles_api_error(self, mock_get_client: MagicMock) -> None:
         """Test that chat handles API errors gracefully."""
         mock_model = MagicMock()
-        mock_model.start_chat.side_effect = Exception("API rate limit exceeded")
+        mock_model.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED")
         mock_get_client.return_value = mock_model
 
         response = chat_with_assistant(
@@ -193,19 +192,27 @@ class TestChatWithAssistant:
             portfolio_context="Test context",
         )
 
-        assert "Error" in response
-        assert "API rate limit exceeded" in response
+        assert "temporarily busy" in response
+        assert "RESOURCE_EXHAUSTED" not in response
+
+    def test_quota_error_message_does_not_expose_provider_details(self) -> None:
+        """Quota errors should be actionable without exposing the raw API response."""
+        response = get_assistant_error_message(
+            Exception("429 RESOURCE_EXHAUSTED projects/123456 quota_limit_value: 0")
+        )
+
+        assert "temporarily busy" in response
+        assert "wait a minute" in response
+        assert "123456" not in response
 
     @patch("src.llm_assistant.get_llm_client")
     def test_chat_with_history(self, mock_get_client: MagicMock) -> None:
         """Test that chat includes conversation history."""
         mock_model = MagicMock()
-        mock_chat = MagicMock()
         mock_response = MagicMock()
         mock_response.text = "Following up on the previous answer..."
 
-        mock_model.start_chat.return_value = mock_chat
-        mock_chat.send_message.return_value = mock_response
+        mock_model.models.generate_content.return_value = mock_response
         mock_get_client.return_value = mock_model
 
         chat_history = [
@@ -220,4 +227,4 @@ class TestChatWithAssistant:
         )
 
         assert response is not None
-        mock_model.start_chat.assert_called_once()
+        mock_model.models.generate_content.assert_called_once()

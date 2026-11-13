@@ -430,12 +430,18 @@ def run_dashboard() -> None:
             if last_message["role"] == "user":
                 user_message = last_message["content"]
                 with st.chat_message("assistant"):
-                    with st.spinner("Thinking..."):
+                    response_placeholder = st.empty()
+                    response_placeholder.info(
+                        "🤖 I’m reviewing the portfolio allocation, forecasts, and "
+                        "optimisation inputs to prepare an explanation…"
+                    )
+                    with st.spinner("Generating your explanation…"):
                         response = chat_with_assistant(
                             user_message=user_message,
                             portfolio_context=portfolio_context,
                             chat_history=st.session_state.chat_history,
                         )
+                    response_placeholder.empty()
                     st.markdown(response)
                 st.session_state.chat_history.append({"role": "assistant", "content": response})
                 st.rerun()

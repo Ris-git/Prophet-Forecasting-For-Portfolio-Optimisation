@@ -14,6 +14,39 @@ from src.settings import LLM_MAX_TOKENS, LLM_MODEL, LLM_TEMPERATURE
 
 logger = logging.getLogger(__name__)
 
+
+def get_assistant_error_message(error: Exception) -> str:
+    """Translate provider failures into a useful, safe message for dashboard users.
+
+    Provider error bodies can contain quota identifiers, project numbers, and setup
+    links.  They are helpful in server logs but should never be shown in the chat.
+    """
+    error_text = str(error).lower()
+
+    if any(marker in error_text for marker in ("429", "resource_exhausted", "rate_limit", "quota")):
+        return (
+            "⚠️ **The AI assistant is temporarily busy.** The language service has "
+            "reached its request limit. Please wait a minute and try again. If this "
+            "continues, the app owner needs to enable or increase the Gemini API quota."
+        )
+
+    if any(marker in error_text for marker in ("401", "403", "unauthenticated", "permission_denied")):
+        return (
+            "⚠️ **The AI assistant is not configured correctly right now.** Please ask "
+            "the app owner to check the Gemini API key and its permissions."
+        )
+
+    if any(marker in error_text for marker in ("timeout", "timed out", "deadline_exceeded")):
+        return (
+            "⚠️ **The AI assistant took too long to respond.** Please try your question "
+            "again in a moment."
+        )
+
+    return (
+        "⚠️ **The AI assistant is unavailable right now.** Please try again in a "
+        "moment. If the problem continues, ask the app owner to check the service logs."
+    )
+
 # System prompt defining the AI assistant's persona and constraints
 SYSTEM_PROMPT = """You are an AI financial analytics assistant embedded inside a quantitative forecasting and portfolio optimisation system.
 
@@ -252,6 +285,12 @@ Now answer the following question based on this data:
             ),
         )
         text = response.text
+        if not text or not text.strip():
+            logger.warning("Gemini returned an empty response.")
+            return (
+                "⚠️ **The AI assistant did not return an answer.** Please try asking "
+                "again or rephrase your question."
+            )
 
         # Guard: detect mid-markdown truncation (odd number of ** markers → unclosed bold)
         if text.count("**") % 2 != 0:
@@ -259,9 +298,11 @@ Now answer the following question based on this data:
             text += "\n\n> ⚠️ *Response was truncated. Try asking a more specific question.*"
 
         return text
-    except Exception as e:
-        logger.error(f"Error calling Gemini API: {e}")
-        return f"⚠️ **Error**: Unable to get response from AI assistant. {e!s}"
+    except Exception as error:
+        # Keep the detailed exception in server logs for diagnosis, but do not leak
+        # provider/project details into the customer-facing chat.
+        logger.exception("Error calling Gemini API")
+        return get_assistant_error_message(error)
 
 
 # Suggested questions for users
