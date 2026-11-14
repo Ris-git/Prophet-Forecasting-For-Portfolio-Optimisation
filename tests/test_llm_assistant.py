@@ -153,7 +153,10 @@ class TestChatWithAssistant:
 
     def test_chat_without_api_key(self) -> None:
         """Test that chat remains useful when an API key is missing."""
-        with patch("src.llm_assistant.get_llm_client", return_value=None):
+        with (
+            patch("src.llm_assistant.get_llm_client", return_value=None),
+            patch("src.llm_assistant.chat_with_openrouter", return_value=None),
+        ):
             response = chat_with_assistant(
                 user_message="Explain the risk-return trade-off",
                 portfolio_context=(
@@ -184,8 +187,11 @@ class TestChatWithAssistant:
         assert "RELIANCE" in response
         assert "highest weight" in response
 
+    @patch("src.llm_assistant.chat_with_openrouter", return_value=None)
     @patch("src.llm_assistant.get_llm_client")
-    def test_chat_handles_api_error(self, mock_get_client: MagicMock) -> None:
+    def test_chat_handles_api_error(
+        self, mock_get_client: MagicMock, mock_openrouter: MagicMock
+    ) -> None:
         """Test that chat handles API errors gracefully."""
         mock_model = MagicMock()
         mock_model.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED")

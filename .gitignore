@@ -74,8 +74,8 @@ logs/
 
 # Streamlit secrets
 .streamlit/secrets.toml
+.streamlit/openrouter.toml
 
 # OS
 .DS_Store
 Thumbs.db
-

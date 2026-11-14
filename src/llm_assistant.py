@@ -2,18 +2,30 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
+import tomllib
+from pathlib import Path
 from typing import Any
+from urllib.request import Request, urlopen
 
-from google import genai
-from google.genai import types
 import pandas as pd
+
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:  # Allows the independent OpenRouter fallback to run.
+    genai = None  # type: ignore[assignment]
+    types = None  # type: ignore[assignment]
 
 from src.settings import LLM_MAX_TOKENS, LLM_MODEL, LLM_TEMPERATURE
 
 logger = logging.getLogger(__name__)
+
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_MODEL = "openrouter/free"
 
 
 def get_assistant_error_message(error: Exception) -> str:
@@ -265,6 +277,91 @@ def get_gemini_api_key() -> str | None:
     return api_key
 
 
+def get_openrouter_api_key() -> str | None:
+    """Get an OpenRouter key from deployment secrets or ignored local config."""
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+
+    if not api_key:
+        try:
+            import streamlit as st
+
+            if hasattr(st, "secrets"):
+                if "OPENROUTER_API_KEY" in st.secrets:
+                    api_key = st.secrets["OPENROUTER_API_KEY"]
+                elif (
+                    "general" in st.secrets
+                    and "OPENROUTER_API_KEY" in st.secrets["general"]
+                ):
+                    api_key = st.secrets["general"]["OPENROUTER_API_KEY"]
+        except ImportError:
+            pass
+
+    if not api_key:
+        local_config = Path(__file__).resolve().parent.parent / ".streamlit" / "openrouter.toml"
+        try:
+            with local_config.open("rb") as config_file:
+                api_key = tomllib.load(config_file).get("OPENROUTER_API_KEY")
+        except (FileNotFoundError, tomllib.TOMLDecodeError):
+            pass
+
+    return api_key
+
+
+def chat_with_openrouter(
+    user_message: str,
+    portfolio_context: str,
+    chat_history: list[dict[str, str]] | None = None,
+) -> str | None:
+    """Request a free OpenRouter model as a backup for Gemini."""
+    api_key = get_openrouter_api_key()
+    if not api_key:
+        return None
+
+    messages: list[dict[str, str]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if chat_history:
+        history_to_use = chat_history
+        if chat_history[-1]["role"] == "user" and chat_history[-1]["content"] == user_message:
+            history_to_use = chat_history[:-1]
+        messages.extend(
+            {"role": message["role"], "content": message["content"]}
+            for message in history_to_use[-6:]
+        )
+
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                "Here is the current portfolio data you should use to answer questions:\n\n"
+                f"{portfolio_context}\n\n---\n\n"
+                f"Now answer the following question based on this data:\n{user_message}"
+            ),
+        }
+    )
+
+    payload = json.dumps(
+        {"model": OPENROUTER_MODEL, "messages": messages, "temperature": LLM_TEMPERATURE}
+    ).encode("utf-8")
+    request = Request(
+        OPENROUTER_API_URL,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "X-Title": "Portfolio Forecast Dashboard",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=30) as response:  # noqa: S310 - fixed provider endpoint
+            result = json.loads(response.read().decode("utf-8"))
+        text = result["choices"][0]["message"]["content"].strip()
+        return text or None
+    except Exception:
+        logger.exception("Error calling OpenRouter API")
+        return None
+
+
 def get_llm_client() -> genai.Client | None:
     """
     Initialize and return Gemini client (new google-genai SDK).
@@ -272,6 +369,10 @@ def get_llm_client() -> genai.Client | None:
     Returns:
         Configured Client if API key available, None otherwise
     """
+    if genai is None:
+        logger.warning("google-genai SDK is not installed; Gemini is unavailable")
+        return None
+
     api_key = get_gemini_api_key()
     if not api_key:
         logger.warning("Gemini API key not found in environment or Streamlit secrets")
@@ -369,10 +470,16 @@ def chat_with_assistant(
     Returns:
         Assistant's response string
     """
+    def backup_response() -> str:
+        openrouter_response = chat_with_openrouter(user_message, portfolio_context, chat_history)
+        if openrouter_response:
+            return openrouter_response
+        return offline_portfolio_explainer(user_message, portfolio_context)
+
     client = get_llm_client()
     if client is None:
-        logger.warning("Gemini client unavailable; using offline portfolio explainer.")
-        return offline_portfolio_explainer(user_message, portfolio_context)
+        logger.warning("Gemini client unavailable; trying OpenRouter backup.")
+        return backup_response()
 
     # Build the full message with portfolio context injected
     context_message = f"""Here is the current portfolio data you should use to answer questions:
@@ -413,7 +520,7 @@ Now answer the following question based on this data:
         text = response.text
         if not text or not text.strip():
             logger.warning("Gemini returned an empty response.")
-            return offline_portfolio_explainer(user_message, portfolio_context)
+            return backup_response()
 
         # Guard: detect mid-markdown truncation (odd number of ** markers → unclosed bold)
         if text.count("**") % 2 != 0:
@@ -426,7 +533,7 @@ Now answer the following question based on this data:
         # provider/project details into the customer-facing chat.
         logger.exception("Error calling Gemini API")
         logger.warning(get_assistant_error_message(error))
-        return offline_portfolio_explainer(user_message, portfolio_context)
+        return backup_response()
 
 
 # Suggested questions for users
