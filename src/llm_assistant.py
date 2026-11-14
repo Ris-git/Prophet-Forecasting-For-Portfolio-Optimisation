@@ -339,7 +339,15 @@ def chat_with_openrouter(
     )
 
     payload = json.dumps(
-        {"model": OPENROUTER_MODEL, "messages": messages, "temperature": LLM_TEMPERATURE}
+        {
+            "model": OPENROUTER_MODEL,
+            "messages": messages,
+            "temperature": LLM_TEMPERATURE,
+            # The free router can select reasoning models.  Explicitly reserving output
+            # tokens prevents them from spending the small provider default on reasoning
+            # and returning an empty visible response.
+            "max_tokens": LLM_MAX_TOKENS,
+        }
     ).encode("utf-8")
     request = Request(
         OPENROUTER_API_URL,
